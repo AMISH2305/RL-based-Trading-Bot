@@ -1,0 +1,56 @@
+import neat
+import numpy as np
+from Improved_Forex_env_PPO import TradingEnv1
+
+# Load the trading environment
+env = TradingEnv1()
+
+def eval_genome(genome, config):
+    net = neat.nn.FeedForwardNetwork.create(genome, config)
+    observation = env.reset()
+    total_reward = 0
+    done = False
+
+    while not done:
+        # Pass the observation to the neural network
+        action = np.argmax(net.activate(observation))
+        observation, reward, done, _ = env.step(action)
+        total_reward += reward
+
+    return total_reward
+
+def eval_genomes(genomes, config):
+    for genome_id, genome in genomes:
+        genome.fitness = eval_genome(genome, config)
+
+def run():
+    # Load NEAT config
+    config_path = 'config-feedforward-revised'
+    config = neat.Config(
+        neat.DefaultGenome,
+        neat.DefaultReproduction,
+        neat.DefaultSpeciesSet,
+        neat.DefaultStagnation,
+        config_path
+    )
+
+    # Create population
+    population = neat.Population(config)
+
+    # Add reporters to monitor progress
+    population.add_reporter(neat.StdOutReporter(True))
+    stats = neat.StatisticsReporter()
+    population.add_reporter(stats)
+
+    # Run NEAT for 100 generations
+    winner = population.run(eval_genomes, 50)
+
+    # Save the best model
+    with open('Top_G_Genome.pkl', 'wb') as f:
+        import pickle
+        pickle.dump(winner, f)
+
+    print('\nBest genome:\n{!s}'.format(winner))
+
+if __name__ == '__main__':
+    run()
