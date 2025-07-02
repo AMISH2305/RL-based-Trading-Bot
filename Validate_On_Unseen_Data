@@ -1,0 +1,93 @@
+import neat
+import pickle
+import numpy as np
+import pandas as pd
+from Forex_env_train import TradingEnv1
+
+# Load validation dataset
+env = TradingEnv1()  # Ensure your env loads unseen data for validation
+
+import numpy as np
+
+def evaluate_genome(genome, config):
+    net = neat.nn.FeedForwardNetwork.create(genome, config)
+    observation = env.reset()
+    total_reward = 0
+    trade_results = []  # Store trade outcomes
+    balance_history = [env.initial_balance]
+    done = False
+
+    while not done:
+        action = np.argmax(net.activate(observation))
+        observation, reward, done, info = env.step(action)
+        total_reward += reward
+
+        # Get profit/loss from info dictionary
+        profit = info.get('profit', 0)
+        if profit != 0:
+            trade_results.append(profit)
+
+        # Store balance history for drawdown calculation
+            balance_history.append(env.balance)
+        
+    # Compute Win Rate
+    total_trades = max(1, len(trade_results))  # Avoid division by zero
+    wins = sum(1 for x in trade_results if x > 0)
+    win_rate = (wins / total_trades) * 100  # Convert to percentage
+
+    # Debugging Win Rate
+    print(f"Total Trades: {total_trades}, Wins: {wins}, Win Rate: {win_rate:.2f}%")
+
+    # Compute Max Drawdown (Percentage)
+    peak_balance = np.maximum.accumulate(balance_history)
+    drawdowns = (peak_balance - balance_history) / peak_balance
+    max_drawdown = np.max(drawdowns)
+
+    # Debugging Max Drawdown
+    print(f"Balance History: {balance_history}")
+    print(f"Peak Balances: {peak_balance}")
+    print(f"Drawdowns: {drawdowns}")
+    print(f"Max Drawdown: {max_drawdown:.4f}")
+
+    # Compute Sharpe Ratio
+    returns = np.array(trade_results)
+    mean_return = np.mean(returns)
+    std_return = np.std(returns) + 1e-6  # Avoid div by zero
+    sharpe_ratio = mean_return / std_return
+
+    # Debugging Sharpe Ratio
+    print(f"Trade Results: {trade_results}")
+    print(f"Mean Return: {mean_return}, Std Return: {std_return}, Sharpe Ratio: {sharpe_ratio:.4f}")
+
+    return total_reward, win_rate, max_drawdown, sharpe_ratio
+
+
+# Load saved genome and config
+def validate_best_genome(filename, config_path):
+    with open(filename, 'rb') as f:
+        best_genome = pickle.load(f)
+    
+    config = neat.Config(
+        neat.DefaultGenome, neat.DefaultReproduction, neat.DefaultSpeciesSet, neat.DefaultStagnation, config_path
+    )
+    
+    total_reward, win_rate, max_drawdown, sharpe_ratio = evaluate_genome(best_genome, config)
+    
+    print("\nValidation Results:")
+    print(f"Total Reward: {total_reward}")
+    print(f"Win Rate: {win_rate}%")
+    print(f"Max Drawdown: {max_drawdown}")
+    print(f"Sharpe Ratio: {sharpe_ratio}")
+    
+    # Save results to a log file
+    results = {
+        "Total Reward": total_reward,
+        "Win Rate": win_rate,
+        "Max Drawdown": max_drawdown,
+        "Sharpe Ratio": sharpe_ratio
+    }
+    pd.DataFrame([results]).to_csv("validation_results.csv", index=False)
+    print("Validation results saved to 'validation_results.csv'")
+
+# Example usage
+validate_best_genome("Neat_Bots/Time_Aware_Bots/Boss.pkl", "config-feedforward(Golden)")
