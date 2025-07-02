@@ -12,4 +12,6 @@ Select the neat bot with best fitness amonng all of the others.
 
 Validate the bot on unseen data to check whether it is generalised or not.
 
-If it has a fair win rate with low drawdown then our bot is ready.
+If it has a fair win rate with low drawdown then our bot is ready for demo execution.
+
+Execute this bot in demo trading using meta trader API.
